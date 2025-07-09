@@ -20,3 +20,8 @@ server/static/*
 coverage-output-e2e/
 coverage-output-unit/
 junit-unit-test.xml
+# kubectl plugin binaries
+kubectl-argo-rollouts
+kubectl-argo-rollouts-*
+dist/
+*.exe
