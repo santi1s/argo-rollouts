@@ -1,0 +1,86 @@
+---
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - prerelease
+          - prepatch
+          - preminor
+          - premajor
+          - patch
+          - minor
+          - major
+
+env:
+  GO_VERSION: '1.23'
+  GORELEASER_VERSION: v1.25.1
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check input
+        if: ${{ !contains(fromJson('["patch", "minor", "major", "prepatch", "preminor", "premajor", "prerelease"]'), inputs.release_type) }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+              core.setFailed('Input is not valid')
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ui/yarn.lock
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag
+        id: tag
+        uses: zwaldowski/semver-release-action@v3
+        with:
+          bump: ${{ inputs.release_type }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prefix: "v"
+
+      - name: Update VERSION file
+        run: |
+          echo "${{ steps.tag.outputs.version }}" | sed 's/^v//' > VERSION
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add VERSION
+          git commit -m "Update VERSION to ${{ steps.tag.outputs.version }}" || exit 0
+          git push origin master
+
+      - name: Fetch new tag
+        run: git fetch --tags origin
+
+      - name: Execute goreleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
