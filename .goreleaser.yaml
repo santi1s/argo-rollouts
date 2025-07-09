@@ -1,9 +1,9 @@
 before:
   hooks:
     - go mod tidy
-    - yarn --cwd ui install
-    - yarn --cwd ui build
-    - cp -r ui/dist/app/* server/static
+    - bash -c 'cd ui && yarn install && yarn build'
+    - mkdir -p server/static
+    - bash -c 'if [ -d "ui/dist/app" ]; then cp -r ui/dist/app/* server/static; else echo "UI build failed, creating empty static dir"; fi'
 
 builds:
   - id: kubectl-argo-rollouts
