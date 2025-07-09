@@ -36,7 +36,22 @@ func GetRolloutPhase(ro *v1alpha1.Rollout) (v1alpha1.RolloutPhase, string) {
 
 	if ro.Status.Phase != "" {
 		// for 1.0+ phase/message is calculated controller side
-		return ro.Status.Phase, ro.Status.Message
+		message := ro.Status.Message
+		
+		// Post-process the message to add replica counts
+		if message == "more replicas need to be updated" {
+			totalReplicas := defaults.GetReplicasOrDefault(ro.Spec.Replicas)
+			remainingReplicas := totalReplicas - ro.Status.UpdatedReplicas
+			message = fmt.Sprintf("%d more replicas need to be updated", remainingReplicas)
+		} else if message == "updated replicas are still becoming available" {
+			pendingReplicas := ro.Status.UpdatedReplicas - ro.Status.AvailableReplicas
+			message = fmt.Sprintf("%d updated replicas are still becoming available", pendingReplicas)
+		} else if message == "old replicas are pending termination" {
+			oldReplicas := ro.Status.Replicas - ro.Status.UpdatedReplicas
+			message = fmt.Sprintf("%d old replicas are pending termination", oldReplicas)
+		}
+		
+		return ro.Status.Phase, message
 	}
 	// for v0.10 and below, fall back to client-side calculation
 	return CalculateRolloutPhase(ro.Spec, ro.Status)
