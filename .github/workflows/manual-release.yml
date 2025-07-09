@@ -69,9 +69,15 @@ jobs:
           git config --local user.name "GitHub Action"
           git add VERSION
           git commit -m "Update VERSION to ${{ steps.tag.outputs.version }}" || exit 0
-          git push origin master
 
-      - name: Fetch new tag
+      - name: Push VERSION update and re-tag
+        run: |
+          git push origin master
+          git tag -d ${{ steps.tag.outputs.version }} || true
+          git tag ${{ steps.tag.outputs.version }}
+          git push origin ${{ steps.tag.outputs.version }}
+
+      - name: Fetch updated tags
         run: git fetch --tags origin
 
       - name: Execute goreleaser
